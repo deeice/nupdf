@@ -1,0 +1,7 @@
+compile.sh - standard compile script, use this for the nanonote, or as a base for anything else
+
+dingoocompile.sh - use this if compiling for the dingoo-a320, main difference from default is keybindings
+
+*.a pre-compiled mupdf libraries for the dingoo/nanonote (these are a bit fiddly to compile on a new system, as fonts/character maps need to be packaged into the libraries, compile mupdf from source to get these)
+
+*.c and *.h - all teh rest of the source, main.c contains most of nupdf's code, the rest are taken from mupdf, but edited to make things work better/faster etc

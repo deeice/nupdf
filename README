@@ -1,0 +1,80 @@
+===README--please read this file from start to finish, before asking any questions about the program===
+
+nupdf is a small, relatively fast pdf reader for the dingoo-a320/a330(running dingux), ben nanonote, and in theory any other system (assuming the libraries can be compiled of course, minor changes may be needed).
+It uses the open source mupdf library to handle all pdf operations, and SDL to display/for the UI.
+nupdf also uses SDL_picofont for the menutext
+
+==keybindings==
+=nanonote=
+pan: up/down/left/right
+zoom in:o
+zoom out:l
+previous page:i
+next page:p
+toggle page rotation:q
+fine panning:a+dpad
+forward/back 5 pages:a+p/i
+menu:enter (right/left/o/l to increase/decrease page number, a to select)
+exit:escape
+
+=dingoo-a320=
+pan: up/down/left/right
+previous page:left shoulder
+next page:right shoulder
+toggle page rotation:y
+zoom in:x
+zoom out:b
+fine panning:a+dpad
+forward/back 5 pages:a+shoulder buttons
+menu:start (right/left/x/b to increase/decrease page number, a to select)
+exit:select
+
+==Installation==
+=dingoo=
+place nupdf.dge, and the data folder on the sd card (e.g /local/nupdf), and launch it as you would any other program (it requires a filename, so use the 'rom chooser' functionality of your menu, to give it a pdf file)
+
+=nanonote=
+place nupdf, and the data folder onto the filesystem(doesn't really matter where), and type:
+./nupdf foo.pdf
+
+==Changelog==
+=v0.3=
+v0.3 changelog:
+added page rotation
+added goto specific page
+added config file
+added return to top of page on pagechange
+starting zoom level tweaked
+
+
+==Links==
+http://en.qi-hardware.com/wiki/Nupdf  -qi-hardware wiki page
+http://ccxvii.net/mupdf/  -homepage for the mupdf library
+http://hultinedutainment.se/~noname/?section=sdl_picofont -SDL_picofont page
+
+==contact for bug reports/suggestions==
+submit any bugs to the wiki page, or otherwise contact me about them.
+
+e-mail: gareth_francis@hotmail.com
+
+
+==license information==
+
+nupdf-a pdf viewer for the dingoo-a320(dingux), and the ben nanonote
+
+Copyright (C) 2010  Gareth Francis
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+

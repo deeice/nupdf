@@ -61,15 +61,20 @@ int menu_loop(void);
 #define NUPDF_ZOOMOUT SDLK_l
 #define NUPDF_NEXTPAGE SDLK_p
 #define NUPDF_PREVPAGE SDLK_i
+#ifdef ZIPIT_Z2
+/* Zipit has many keys, so select nanonote keys and add Zipit keys. */
+/* But remap NUPDF_FINEPAN modifier to SDLK_LCTRL (like the dingoo) */
+#define NUPDF_FINEPAN SDLK_LCTRL
+#else
 #define NUPDF_FINEPAN SDLK_a   /* maybe change later */
+#endif
 #define NUPDF_ROTATE SDLK_q
 #define NUPDF_MENU SDLK_RETURN
 #endif
 
 pdfapp_t app;
-SDL_Surface *screen, *image, *loading;
-SDL_Rect src, dest, desthourglass;
-fz_obj obj;
+SDL_Surface *screen = NULL, *image = NULL, *loading = NULL;
+SDL_Rect src, oldsrc, dest, desthourglass;
 
 int check_input=1;
 int fine_pan[5];
@@ -81,8 +86,16 @@ int topreturn=0;
 #define NUPDF_FINEPAN_LEFT 3
 #define NUPDF_FINEPAN_RIGHT 4
 
+
+
+
+static void doc_open(pdfapp_t *app, char *path);
+
+
 int main(int argc, char** argv)
 {
+	int i;
+
 	if(argc==1)
 	{
 		fprintf(stderr, "You must supply a filename to open\n");
@@ -102,8 +115,13 @@ int main(int argc, char** argv)
 	if(init_config())
 		return 1;
 	
-		
-	init_graphics();
+	oldsrc.x = oldsrc.y = 0;
+
+	if ((i = init_graphics()) != 0)
+	{
+		fprintf(stderr, "error, Could not init SDL graphics (%d)\n", i);
+		return 1;
+	}
 	src.x=0;
 	src.y=0;
 	src.w=SCREEN_WIDTH;
@@ -123,17 +141,26 @@ int main(int argc, char** argv)
 	
 	app.pageno=1;
 	
+#if 0
 	pdfapp_open(&app, argv[1]);
+#else
+	doc_open(&app, argv[1]);
+#endif
 		
 	load_page(&app);
-	
 	draw_page(&app);
 	
-	SDL_FreeSurface(loading);
+	if (loading)
+		SDL_FreeSurface(loading);
+	loading = NULL;
 	
 	SDL_Surface *temp_bmp;
 		
-	temp_bmp = SDL_LoadBMP("data/loadingsmall.bmp");
+#ifdef ZIPIT_Z2
+        temp_bmp = SDL_LoadBMP("/usr/share/nupdf/data/loadingsmall.bmp");
+#else
+ 	temp_bmp = SDL_LoadBMP("data/loadingsmall.bmp");
+#endif
 	if (temp_bmp == NULL)
 	{
 		fprintf(stderr, "Unable to load bitmap: %s\n", SDL_GetError());
@@ -146,9 +173,11 @@ int main(int argc, char** argv)
 
 	SDL_FreeSurface(temp_bmp);
 	
+	/* fprintf(stderr, "main_loop()\n"); */
 	main_loop();
 	
 	pdfapp_close(&app);
+	if (image)
 	SDL_FreeSurface(image);
 	
 	SDL_Quit();
@@ -162,6 +191,7 @@ int main_loop(void)
 	SDL_Event keyevent; 
 	Uint8 *keystate; 
 	float oldzoom;
+
 	while(!done)
 	{
 		
@@ -172,9 +202,15 @@ int main_loop(void)
 		{
 		  if(keyevent.type==SDL_KEYDOWN)
 		  {
+
+			  /* fprintf(stderr, "main_loop(SDL keyevent)\n"); */
+
 			  switch(keyevent.key.keysym.sym)
 			  {
 				case NUPDF_ZOOMIN:
+#ifdef ZIPIT_Z2
+		                case SDLK_PAGEUP:
+#endif
 				  if(app.zoom!=2)
 				  {
 					SDL_BlitSurface(loading, NULL, screen, &desthourglass);
@@ -195,6 +231,9 @@ int main_loop(void)
 				  break;
 				  
 				case NUPDF_ZOOMOUT:
+#ifdef ZIPIT_Z2
+		                case SDLK_PAGEDOWN:
+#endif
 				if(app.zoom!=0.5)
 				{
 					SDL_BlitSurface(loading, NULL, screen, &desthourglass);
@@ -215,6 +254,10 @@ int main_loop(void)
 				  break;
 				  
 				case NUPDF_NEXTPAGE:
+#ifdef ZIPIT_Z2
+		                case SDLK_PERIOD:
+		                case SDLK_END:
+#endif
 				if(fine_pan[NUPDF_FINEPAN_ENABLE])
 				{
 					if(app.pageno!=app.pagecount)
@@ -261,6 +304,10 @@ int main_loop(void)
 				break;
 				
 				case NUPDF_PREVPAGE:
+#ifdef ZIPIT_Z2
+		                case SDLK_COMMA:
+		                case SDLK_HOME:
+#endif
 				if(fine_pan[NUPDF_FINEPAN_ENABLE])
 				{
 					if(app.pageno!=1)
@@ -297,6 +344,9 @@ int main_loop(void)
 				break;
 				
 				case NUPDF_ROTATE:
+#ifdef ZIPIT_Z2
+		                case SDLK_SPACE:
+#endif
 					if(app.rotate==0)
 					{
 						SDL_BlitSurface(loading, NULL, screen, &desthourglass);
@@ -334,6 +384,9 @@ int main_loop(void)
 					break;
 					
 				case NUPDF_MENU:
+#ifdef ZIPIT_Z2
+		                case SDLK_TAB:
+#endif
 					menu_loop();
 					break;		
 					
@@ -416,12 +469,18 @@ int main_loop(void)
 			else
 				src.x=0;
 	}
-	
+
+	// We really only need to do this if src.x or src.y changed for panning.
+	if ((src.x != oldsrc.x) || (src.y != oldsrc.y))
+	{
 		SDL_FillRect(screen, NULL, SDL_MapRGBA(screen->format, 0, 0, 0, 0));
 	
 		SDL_BlitSurface(image, &src, screen, &dest);
 		SDL_Flip(screen);
 
+		oldsrc.x = src.x;
+		oldsrc.y = src.y;
+	}
 	}	
 	
 }
@@ -456,13 +515,21 @@ int menu_loop(void)
                 {
                     strcpy(arrows[i], "");
                 }
+	    }
 
-		
+
 		sprintf(settingstext, "\t\t\tSettings\t%s\n\n"
-							  "Jump to page %i\t%s\n\n"
-							  "Return\t%s"
-							  "\n\n\n\n\n\nUp/Down:select item\nLeft/Right:edit item value\nzoom+/zoom-:+/-10 to item value\n"
-							 , arrows[0], pagenumber, arrows[1], arrows[2]);
+                        "Jump to page %i\t%s\n\n"
+                        "Return\t%s"
+                        "\n\n\n\n\n\n"
+                        "Up/Down:       select item\n"
+                        "Left/Right:    edit item value\n"
+#ifdef ZIPIT_Z2		
+                        "+/-:           +/-10 to item value\n"
+#else
+			"zoom+/zoom-:+/-10 to item value\n"
+#endif
+			, arrows[0], pagenumber, arrows[1], arrows[2]);
 
 		SDL_FillRect(screen, NULL, SDL_MapRGBA(screen->format, 0, 0, 0, 0));
 		text=FNT_Render(settingstext, textcolor);
@@ -495,11 +562,19 @@ int menu_loop(void)
 						pagenumber++;
 				break;
 			case SDLK_ESCAPE:
-			case SDLK_RETURN:
+#ifdef ZIPIT_Z2
+	                case SDLK_TAB: /* On Zipit Tab gets you in/out of menu */
+	                case SDLK_BACKSPACE: /* On Zipit BS and ESC also exit menu */
+#else
+ 			case SDLK_RETURN:
+#endif
 				done=1;
 				
 				break;
 			case NUPDF_ZOOMIN:
+#ifdef ZIPIT_Z2
+	                case SDLK_PAGEUP:
+#endif
 				if(arrowposition==1)
 					if(pagenumber<(app.pagecount-10))
 						pagenumber+=10;
@@ -507,13 +582,21 @@ int menu_loop(void)
 						pagenumber=app.pagecount;
 					break;
 			case NUPDF_ZOOMOUT:
+#ifdef ZIPIT_Z2
+		        case SDLK_PAGEDOWN:
+#endif
 				if(arrowposition==1)
 					if(pagenumber>10)
 						pagenumber-=10;
 					else
 						pagenumber=1;
 					break;
-			case NUPDF_FINEPAN:
+#ifdef ZIPIT_Z2
+			case SDLK_RETURN: /* On Zipit Return or Space accept menu settings.*/
+	                case SDLK_SPACE:
+#else
+ 			case NUPDF_FINEPAN:
+#endif
 				if(arrowposition==1)
 				{
 					done=1;
@@ -531,14 +614,11 @@ int menu_loop(void)
 	}
 		
 		
-	}
-	
-	
-	SDL_FreeSurface(text);
-	
+	/* SDL_FreeSurface(text); */ /* Already done above. */
 	
 	/*  TODO: not working
 	 *  save_config(); */	
+	}
 }
 	
 int init_config(void)
@@ -553,7 +633,12 @@ int init_config(void)
 	int done=0;
 	int i=0;
 	
-	conf=fopen("config", "rw");
+#ifdef ZIPIT_Z2
+	/* Maybe try $HOME/.config/nupdf/config first? */
+	conf=fopen("/usr/share/nupdf/config", "rw");
+#else
+ 	conf=fopen("config", "rw");
+#endif
 	if(conf==NULL)
 	{
 		fprintf(stderr, "cannot find config file, quitting...\n");
@@ -603,8 +688,12 @@ int save_config(void)
 	int i=0;
 	
 	
-
-	conf=fopen("./config", "rw");
+#ifdef ZIPIT_Z2
+	/* Maybe try $HOME/.config/nupdf/config first? */
+	conf=fopen("/usr/local/share/nupdf/config", "rw");
+#else
+ 	conf=fopen("./config", "rw");
+#endif
 	if(conf==NULL)
 	{
 		fprintf(stderr, "cannot open config file\n");
@@ -658,90 +747,146 @@ void reset_panning(void)
 	
 int init_graphics(void)
 {
+	SDL_Surface *temp_bmp;
+		
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
 			fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
 			return 1;
 		}
-		screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, BPP,SDL_SWSURFACE);
-		if (screen == NULL) {
-			fprintf(stderr, "Unable to set video mode: %s\n", SDL_GetError());
-			return 1;
-		}
+	screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, BPP,SDL_SWSURFACE);
+	if (screen == NULL) {
+		fprintf(stderr, "Unable to set video mode: %s\n", SDL_GetError());
+		return 2;
+	}
 	
-		SDL_ShowCursor(SDL_DISABLE);
-		
-		/* load some nice graphics for later */
-		
-		SDL_Surface *temp_bmp;
-		
-		temp_bmp = SDL_LoadBMP("data/loading.bmp");
-		if (temp_bmp == NULL) {
-			fprintf(stderr, "Unable to load bitmap: %s\n", SDL_GetError());
-			return 1;
-		}
-		
-		loading = SDL_DisplayFormat(temp_bmp);
-		if(loading==NULL)
-			return 1;
+	SDL_ShowCursor(SDL_DISABLE);
 	
-		SDL_FreeSurface(temp_bmp);
+#ifdef ZIPIT_Z2
+	temp_bmp = SDL_LoadBMP("/usr/local/share/nupdf/data/loading.bmp");
+#else
+	temp_bmp = SDL_LoadBMP("data/loading.bmp");
+#endif
+	if (temp_bmp == NULL) {
+		fprintf(stderr, "Unable to load bitmap: %s\n", SDL_GetError());
+		return 3;
+	}
+		
+	loading = SDL_DisplayFormat(temp_bmp);
+	if(loading==NULL)
+		return 4;
+	
+	SDL_FreeSurface(temp_bmp);
 						
-		if(SDL_BlitSurface(loading, NULL, screen, NULL)!=0)
-			fprintf(stderr, "loading screen blit failed\n");
-		SDL_Flip(screen);
+	if(SDL_BlitSurface(loading, NULL, screen, NULL)!=0)
+		fprintf(stderr, "loading screen blit failed\n");
+	SDL_Flip(screen);
 		
+	/* load some nice graphics for later (switch from LOADING to hourglass) */
+	SDL_FreeSurface(loading);
+	
+#ifdef ZIPIT_Z2
+        temp_bmp = SDL_LoadBMP("/usr/share/nupdf/data/loadingsmall.bmp");
+#else
+ 	temp_bmp = SDL_LoadBMP("data/loadingsmall.bmp");
+#endif
+	if (temp_bmp == NULL)
+	{
+		fprintf(stderr, "Unable to load bitmap: %s\n", SDL_GetError());
+		return 5;
+	}
+	
+	loading = SDL_DisplayFormat(temp_bmp);
+	if(loading==NULL)
+		return 6;
+
+	SDL_FreeSurface(temp_bmp);
+
+	return 0;
 }
 	
-	
+/* Borrow simpler code from fbpdf */
+void doc_open(pdfapp_t *app, char *path)
+{
+  fz_accelerate();
+  app->cache = fz_new_glyph_cache();
+  if (pdf_open_xref(&app->xref, path, NULL)) {
+    return;
+  }
+  if (pdf_load_page_tree(app->xref)) {
+    return;
+  }
+  app->pagecount = pdf_count_pages(app->xref);
+  app->rotate = 0;
+  app->doctitle = path;
+}
+
 static void load_page(pdfapp_t *app)
 {
-	fz_error error;
-	fz_obj *obj;
-	
-	if (app->page)
-		pdf_droppage(app->page);
-	app->page = nil;
+  if (app->image)
+    fz_drop_pixmap(app->image);
+  app->image = NULL;
 
-	pdf_flushxref(app->xref, 0);
-
-	obj = pdf_getpageobject(app->xref, app->pageno);
-	error = pdf_loadpage(&app->page, app->xref, obj);
-	if (error)
-		fprintf(stderr, "error loading page\n");
+  if (image)
+    SDL_FreeSurface(image);
+  image = NULL;
 }
-	
-	
+
 static void draw_page(pdfapp_t *app)
 {
-	fz_error error;
-	fz_matrix matrix;
-	fz_rect bbox;
-	fz_irect irect;
-	int pagewidth, pageheight;
-	
-	if (app->image)
-		fz_droppixmap(app->image);
-	app->image = NULL;
-	
-	SDL_FreeSurface(image);
-	
-	
-	matrix = fz_identity();
-	matrix = fz_concat(matrix, fz_translate(0, -app->page->mediabox.y1));
-	matrix = fz_concat(matrix, fz_scale(app->zoom, -app->zoom));		
-	matrix = fz_concat (matrix, fz_rotate (app->rotate));
-			
-	  irect  = fz_roundrect (fz_transformaabb (matrix, app->page->mediabox));
-	  pagewidth  = irect.x1 - irect.x0;
-	  pageheight   = irect.y1 - irect.y0;
+  fz_matrix ctm;
+  fz_bbox bbox;
+  fz_device *dev;
+  fz_display_list *list;
+  pdf_page *page;
+  int pagewidth, pageheight;
 
-	  fz_newpixmap (&app->image, irect.x0, irect.y0, pagewidth, pageheight, 4);
-	 
-	  /* colourmask is RGBA, this seems to work properly now, after messing around */
-	  image = SDL_CreateRGBSurfaceFrom (app->image->samples, pagewidth, pageheight, 32,
-	  pagewidth * 4, 0x0000FF00, 0x00FF0000, 0xFF000000, 0x000000FF);
-	 
-	 
-	  memset (app->image->samples, 0xFF, pagewidth * pageheight * 4);
-	  fz_rendertreeover (app->rast, app->image, app->page->tree, matrix);
+  /* fprintf(stderr, "draw_page(%d)\n", app->pageno); */
+
+  if (pdf_load_page(&page, app->xref, app->pageno - 1))
+    return;
+  list = fz_new_display_list();
+  dev = fz_new_list_device(list);
+  if (pdf_run_page(app->xref, page, dev, fz_identity))
+    return;
+  fz_free_device(dev);
+
+  ctm = fz_identity;
+  ctm = fz_concat(ctm, fz_translate(0, -page->mediabox.y1));
+  ctm = fz_concat(ctm, fz_scale(app->zoom, -app->zoom));    
+  ctm = fz_concat (ctm, fz_rotate (app->rotate));
+  bbox = fz_round_rect(fz_transform_rect(ctm, page->mediabox));
+
+  app->image = fz_new_pixmap_with_rect(fz_device_rgb, bbox);
+  fz_clear_pixmap_with_color(app->image, 0xff);
+
+  dev = fz_new_draw_device(app->cache, app->image);
+
+  /*  fprintf(stderr, "display_list(%p,%p,%p, %d, %d)\n",list,dev,ctm,bbox.x1,bbox.y1); */
+  fz_execute_display_list(list, dev, ctm, bbox);
+  /* fprintf(stderr, "fz_free_device(%d)\n", dev); */
+
+  fz_free_device(dev);
+
+  /* Copy to SDL surface now? */
+  pagewidth  = (int)(bbox.x1 - bbox.x0);
+  pageheight = (int)(bbox.y1 - bbox.y0);
+  /* colourmask is RGBA, this seems to work properly now, after messing around */
+  /* SDL_Create expecte (rmask, gmask, bmask, amask) */
+#ifdef ZIPIT_Z2
+  image = SDL_CreateRGBSurfaceFrom (app->image->samples, pagewidth, pageheight, 32,
+			    pagewidth * 4, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
+#else
+  image = SDL_CreateRGBSurfaceFrom (app->image->samples, pagewidth, pageheight, 32,
+			    pagewidth * 4, 0x0000FF00, 0x00FF0000, 0xFF000000, 0x000000FF);
+#endif
+  SDL_FillRect(screen, NULL, SDL_MapRGBA(screen->format, 0, 0, 0, 0));
+  SDL_BlitSurface(image, &src, screen, &dest);
+  SDL_Flip(screen);
+
+  //fz_drop_pixmap(app->image); /* Free this instead in load_page() for now. */
+  fz_free_display_list(list);
+  pdf_free_page(page);
+  pdf_age_store(app->xref->store, 3);
+
 }
+

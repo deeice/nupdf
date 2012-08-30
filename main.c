@@ -690,7 +690,7 @@ int save_config(void)
 	
 #ifdef ZIPIT_Z2
 	/* Maybe try $HOME/.config/nupdf/config first? */
-	conf=fopen("/usr/local/share/nupdf/config", "rw");
+	conf=fopen("/usr/share/nupdf/config", "rw");
 #else
  	conf=fopen("./config", "rw");
 #endif
@@ -762,7 +762,7 @@ int init_graphics(void)
 	SDL_ShowCursor(SDL_DISABLE);
 	
 #ifdef ZIPIT_Z2
-	temp_bmp = SDL_LoadBMP("/usr/local/share/nupdf/data/loading.bmp");
+	temp_bmp = SDL_LoadBMP("/usr/share/nupdf/data/loading.bmp");
 #else
 	temp_bmp = SDL_LoadBMP("data/loading.bmp");
 #endif
